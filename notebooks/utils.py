@@ -75,3 +75,15 @@ def sort_by_bnf_code(df):
     df = df.reset_index(drop=True)
 
     return df
+
+def find_unique_rows(df1, df2):
+    # Merge the two dataframes with indicator to identify the source of each row
+    merged_df = df1.merge(df2, how='outer', indicator=True)
+
+    # Select the rows that are only in one of the dataframes
+    unique_rows = merged_df[merged_df['_merge'] != 'both']
+
+    # Drop the indicator column before returning
+    unique_rows = unique_rows.drop(columns=['_merge'])
+
+    return unique_rows
