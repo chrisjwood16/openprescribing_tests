@@ -13,7 +13,7 @@ import warnings
 
 warnings.simplefilter("ignore", category=UserWarning)
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
 
 class Config:
     """
@@ -267,41 +267,6 @@ class FetchData:
         
     def results(self):
         return self.full_results_df
-
-def show_new_items(df_existing, df_latest):
-    # Merge the dataframes with an indicator
-    merged_df = df_latest.merge(df_existing, on='BNF_CODE', how='left', suffixes=('_latest', '_existing'))
-
-    # Filter rows where BNF_DESCRIPTIONs do not match
-    updated_codes = merged_df[merged_df['BNF_DESCRIPTION_latest'] != merged_df['BNF_DESCRIPTION_existing']]
-
-    # Select the relevant columns and rename them
-    updated_codes = updated_codes[['BNF_CODE', 'BNF_DESCRIPTION_latest']]
-    updated_codes = updated_codes.rename(columns={'BNF_DESCRIPTION_latest': 'BNF_DESCRIPTION'})
-
-    # Sort the dataframe by BNF_CODE
-    updated_codes = sort_by_bnf_code(updated_codes)
-
-    return updated_codes
-
-def sort_by_bnf_code(df):
-    # Sort the dataframe by BNF_CODE
-    #Add column BNF_CHAPTER which is the first 2 characters of BNF_CODE
-    df['BNF_CHAPTER'] = df['BNF_CODE'].str[:2]
-    #Add column BNF_SECTION which is the 3rd and 4th characters of BNF_CODE
-    df['BNF_SECTION'] = df['BNF_CODE'].str[2:4]
-    #Add column BNF_PARAGRAPH which is the 5th and 6th characters of BNF_CODE
-    df['BNF_PARAGRAPH'] = df['BNF_CODE'].str[4:6]
-    #Add column BNF_SUBPARAGRAPH which is the 7th character of BNF_CODE
-    df['BNF_SUBPARAGRAPH'] = df['BNF_CODE'].str[6]
-
-    # Sort the dataframe by BNF_CHAPTER Ascending, BNF_SECTION Ascending, BNF_PARAGRAPH Ascending, BNF_SUBPARAGRAPH Ascending
-    df = df.sort_values(by=['BNF_CHAPTER', 'BNF_SECTION', 'BNF_PARAGRAPH', 'BNF_SUBPARAGRAPH'])
-
-    # Reset the index
-    df = df.reset_index(drop=True)
-
-    return df
 
 def show_available_datasets():
     # Extract list of datasets
