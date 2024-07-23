@@ -151,6 +151,7 @@ def write_monthly_report_htmL(chem_subs, bnf_codes, bnf_descriptions, date):
     <h2>Monthly Report for {date}</h2>
     <p>This report details items appearing in the English Prescribing Data for {date} that have not previously appeared in the data (from Jan 2014).</p>
     {jan_alert}
+    <p><a href="https://html-preview.github.io/?url=https://github.com/chrisjwood16/openprescribing_tests/blob/main/reports/list_reports.html">View previous reports</a></p>
     <h3>New Chemical Substances</h3>
     <p>Identify "chemical substances" prescribed for the first time</p>
     {chem_subs.to_html()}
@@ -168,3 +169,59 @@ def write_monthly_report_htmL(chem_subs, bnf_codes, bnf_descriptions, date):
         file.write(report)
 
     print (f"Report written to {reports_dir}/monthly_report_{date}.html")
+
+def generate_list_reports_html():
+    reports_dir = os.path.join("..", "reports")
+    # Get all HTML files in the directory, except list_reports.html
+    html_files = [f for f in os.listdir(reports_dir) if f.endswith('.html') and f != 'list_reports.html']
+
+    # Start the HTML content
+    html_content = """
+    <html>
+    <head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 20px;
+        }
+        a {
+            text-decoration: none;
+            color: #0485d1;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        h2 {
+            color: #333;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            margin: 10px 0;
+        }
+    </style>
+    </head>
+    <body>
+    <h2>English Prescribing Data - Monthly New Items Reports</h2>
+    <ul>
+    """
+
+    # Add links to all HTML files
+    for html_file in html_files:
+        title = os.path.splitext(html_file)[0]
+        link = f"https://html-preview.github.io/?url=https://github.com/chrisjwood16/openprescribing_tests/blob/main/reports/{html_file}"
+        html_content += f'<li><a href="{link}">{title}</a></li>\n'
+
+    # End the HTML content
+    html_content += """
+    </ul>
+    </body>
+    </html>
+    """
+
+    # Write the HTML content to list_reports.html
+    with open(os.path.join(reports_dir, 'list_reports.html'), 'w') as f:
+        f.write(html_content)
