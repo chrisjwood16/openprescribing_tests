@@ -163,6 +163,12 @@ class ResourceNames:
 
     def return_date_list(self):
         return self.date_list
+    
+    def return_resources_from(self):
+        return self.resource_from
+    
+    def return_resources_to(self):
+        return self.resource_to
 
 class APICall:
     """
@@ -201,6 +207,7 @@ class FetchData:
     of cache, API calls, and data processing.
     """
     def __init__(self, resource, sql, date_from, date_to, cache=False, max_attempts = 3):
+        print (f"Fetching data please wait...")
         self.resource = resource
         self.sql = sql
         self.cache = cache
@@ -215,6 +222,7 @@ class FetchData:
         self.generate_request_map()
         self.request_data()
         self.process_data()
+        print (f"Data retrieved.")
 
     def generate_api_calls(self):
         for resource_id in self.resource_names_obj.resource_name_list:
@@ -236,15 +244,15 @@ class FetchData:
                 time.sleep(2 ** retry_counter)  # Exponential backoff
             
             rs = [grequests.get(url) for url in self.requests_map]
-            for response in grequests.imap(rs, size=50):
+            for response in grequests.imap(rs, size=5):
                 if response.status_code == 200:
                     self.returned_json_list.append(response.json())
                     CACHE_MANAGER_OBJ.save_to_cache(response.url, response.json())
                     self.requests_map.remove(response.url)
                     logging.info(f"Success for {response.url}")
                 else:
-                    logging.error(f"Error for {response.url}")
-                    raise requests.HTTPError(response.status_code, response.url)
+                    logging.error(f"Error {response.status_code} for {response.url}. Will retry.")
+                    #raise requests.HTTPError(response.status_code, response.url)
 
             retry_counter += 1
 
@@ -267,6 +275,24 @@ class FetchData:
         
     def results(self):
         return self.full_results_df
+    
+    def return_resources_from(self):
+        # Given Timestamp
+        timestamp = pd.Timestamp(self.resource_names_obj.return_resources_from())
+
+        # Convert to string in the format YYYY-MM
+        formatted_string = timestamp.strftime('%Y-%m')
+
+        return formatted_string
+    
+    def return_resources_to(self):
+        # Given Timestamp
+        timestamp = pd.Timestamp(self.resource_names_obj.return_resources_to())
+
+        # Convert to string in the format YYYY-MM
+        formatted_string = timestamp.strftime('%Y-%m')
+
+        return formatted_string
 
 def show_available_datasets():
     # Extract list of datasets
