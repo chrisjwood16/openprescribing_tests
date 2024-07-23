@@ -1,89 +1,170 @@
 import pandas as pd
+import os
 
-def show_new_items(df_existing, df_latest):
-    #Remove duplicates from df_existing
-    df_existing = df_existing.drop_duplicates(subset=['BNF_CODE', 'BNF_DESCRIPTION'])
+class CompareLatest:
+    def __init__(self, df_existing, df_latest, exclude_chapters=[]):
+        self.df_existing = df_existing
+        self.df_latest = df_latest
+        self.exclude_chapters = exclude_chapters
+        self.new_chem_subs = None
+        self.new_bnf_codes = None
+        self.new_bnf_descriptions = None
+        if self.exclude_chapters:
+            self.df_existing = self.exclude_these_chapters(self.df_existing, self.exclude_chapters)
+            self.df_latest = self.exclude_these_chapters(self.df_latest, self.exclude_chapters)
+        self.find_bnf_code_only_in_latest()
+        self.find_bnf_description_only_in_latest()
+        self.find_chemical_substance_bnf_descr_only_in_latest()
+        self.new_desc_only = self.find_unique_rows(self.new_bnf_descriptions, self.new_bnf_codes)
 
-    # Merge the dataframes with an indicator
-    merged_df = df_latest.merge(df_existing, on='BNF_CODE', how='left', suffixes=('_latest', '_existing'))
+    def find_bnf_code_only_in_latest(self):
+        latest_codes = set(self.df_latest['BNF_CODE'])
+        existing_codes = set(self.df_existing['BNF_CODE'])
+        unique_codes = latest_codes - existing_codes
 
-    # Filter rows where BNF_DESCRIPTIONs do not match
-    updated_codes = merged_df[merged_df['BNF_CODE_latest'] != merged_df['BNF_CODE_existing']]
+        result = self.df_latest[self.df_latest['BNF_CODE'].isin(unique_codes)]
+        result = self.sort_by_bnf_code(result)
+        self.new_bnf_codes = result
 
-    # Select the relevant columns and rename them
-    updated_codes = updated_codes[['BNF_CODE', 'BNF_DESCRIPTION_latest']]
-    updated_codes = updated_codes.rename(columns={'BNF_DESCRIPTION_latest': 'BNF_DESCRIPTION'})
+    def find_bnf_description_only_in_latest(self):
+        latest_descriptions = set(self.df_latest['BNF_DESCRIPTION'])
+        existing_descriptions = set(self.df_existing['BNF_DESCRIPTION'])
+        unique_descriptions = latest_descriptions - existing_descriptions
 
-    # Sort the dataframe by BNF_CODE
-    updated_codes = sort_by_bnf_code(updated_codes)
+        result = self.df_latest[self.df_latest['BNF_DESCRIPTION'].isin(unique_descriptions)]
+        result = self.sort_by_bnf_code(result)
+        self.new_bnf_descriptions = result
 
-    return updated_codes
+    def find_chemical_substance_bnf_descr_only_in_latest(self):
+        latest_substances = set(self.df_latest['CHEMICAL_SUBSTANCE_BNF_DESCR'])
+        existing_substances = set(self.df_existing['CHEMICAL_SUBSTANCE_BNF_DESCR'])
+        unique_substances = latest_substances - existing_substances
 
-def find_bnf_code_only_in_latest(df_existing, df_latest):
-    # Find BNF_CODEs that are only in df_latest
-    latest_codes = set(df_latest['BNF_CODE'])
-    existing_codes = set(df_existing['BNF_CODE'])
-    unique_codes = latest_codes - existing_codes
+        result = self.df_latest[self.df_latest['CHEMICAL_SUBSTANCE_BNF_DESCR'].isin(unique_substances)]
+        result = self.sort_by_bnf_code(result)
+        self.new_chem_subs = result
+
+    @staticmethod
+    def exclude_these_chapters(df, codes):
+        # Separate codes starting with '~' and others
+        exclude_codes = [code for code in codes if not code.startswith('~')]
+        except_codes = [code[1:] for code in codes if code.startswith('~')]
+
+        # Copy the DataFrame to avoid modifying the original
+        df = df.copy()
+
+        # Filter out rows based on the conditions
+        condition_exclude_2 = df['BNF_CODE'].str[:2].isin(exclude_codes)
+        condition_exclude_4 = df['BNF_CODE'].str[:4].isin(exclude_codes)
+        condition_except = df['BNF_CODE'].str[:4].isin(except_codes)
+
+        # Exclude rows meeting the exclude condition but not the except condition
+        df = df[~(condition_exclude_2 | condition_exclude_4) | condition_except]
+
+        # Reset the index of the resulting DataFrame
+        df = df.reset_index(drop=True)
+
+        return df
+
+    @staticmethod
+    def sort_by_bnf_code(df):
+        df = df.copy()
+        df.loc[:, 'BNF_CHAPTER'] = df['BNF_CODE'].str[:2]
+        df.loc[:, 'BNF_SECTION'] = df['BNF_CODE'].str[2:4]
+        df.loc[:, 'BNF_PARAGRAPH'] = df['BNF_CODE'].str[4:6]
+        df.loc[:, 'BNF_SUBPARAGRAPH'] = df['BNF_CODE'].str[6]
+
+        df = df.sort_values(by=['BNF_CHAPTER', 'BNF_SECTION', 'BNF_PARAGRAPH', 'BNF_SUBPARAGRAPH'])
+        df = df.drop(columns=['BNF_CHAPTER', 'BNF_SECTION', 'BNF_PARAGRAPH', 'BNF_SUBPARAGRAPH'])
+        df = df.reset_index(drop=True)
+
+        return df
     
-    # Filter df_latest based on unique BNF_CODEs
-    result = df_latest[df_latest['BNF_CODE'].isin(unique_codes)]
-    result=sort_by_bnf_code(result)
-    return result
+    @staticmethod
+    def find_unique_rows(df1, df2):
+        # Merge the two dataframes with indicator to identify the source of each row
+        merged_df = df1.merge(df2, how='outer', indicator=True)
 
-def find_bnf_description_only_in_latest(df_existing, df_latest):
-    # Find BNF_DESCRIPTIONs that are only in df_latest
-    latest_descriptions = set(df_latest['BNF_DESCRIPTION'])
-    existing_descriptions = set(df_existing['BNF_DESCRIPTION'])
-    unique_descriptions = latest_descriptions - existing_descriptions
+        # Select the rows that are only in one of the dataframes
+        unique_rows = merged_df[merged_df['_merge'] != 'both']
+
+        # Drop the indicator column before returning
+        unique_rows = unique_rows.drop(columns=['_merge'])
+
+        return unique_rows
+      
+    def return_new_chem_subs(self):
+        return self.new_chem_subs
     
-    # Filter df_latest based on unique BNF_DESCRIPTIONs
-    result = df_latest[df_latest['BNF_DESCRIPTION'].isin(unique_descriptions)]
-    result=sort_by_bnf_code(result)
-    return result
-
-def find_chemical_substance_bnf_descr_only_in_latest(df_existing, df_latest):
-    # Find CHEMICAL_SUBSTANCE_BNF_DESCRs that are only in df_latest
-    latest_substances = set(df_latest['CHEMICAL_SUBSTANCE_BNF_DESCR'])
-    existing_substances = set(df_existing['CHEMICAL_SUBSTANCE_BNF_DESCR'])
-    unique_substances = latest_substances - existing_substances
+    def return_new_bnf_codes(self):
+        return self.new_bnf_codes
     
-    # Filter df_latest based on unique CHEMICAL_SUBSTANCE_BNF_DESCRs
-    result = df_latest[df_latest['CHEMICAL_SUBSTANCE_BNF_DESCR'].isin(unique_substances)]
-    result=sort_by_bnf_code(result)
-    return result
+    def return_new_bnf_descriptions(self):
+        return self.new_bnf_descriptions
+    
+    def return_new_desc_only(self):
+        return self.new_desc_only
 
-def sort_by_bnf_code(df):
-    # Make a copy of the dataframe to avoid SettingWithCopyWarning
-    df = df.copy()
+def write_monthly_report_htmL(chem_subs, bnf_codes, bnf_descriptions, date):
+    reports_dir = os.path.join("..", "reports")
+    os.makedirs(reports_dir, exist_ok=True)
+    # Create an alert if January data to explain BNF structure changes
+    if date[-2:]=='01':
+        jan_alert=f'<p><b>Please note:</b> January data often includes a larger number of "changes" as BNF structure changes are generally made in January data - <a href="https://www.nhsbsa.nhs.uk/bnf-code-changes-january-{date[:4]}">more information here</a></p>'
+    else:
+        jan_alert=''
+    
+    # Write a function to generate the HTML report
+    report = f"""
+    <html>
+    <head>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 20px;
+        }}
+        table {{
+            border-collapse: collapse;
+            table-layout: auto;
+            margin-bottom: 20px;
+        }}
+        table, th, td {{
+            border: 1px solid black;
+        }}
+        th {{
+            background-color: #0485d1;
+            color: white;
+            padding: 8px;
+            text-align: left;
+        }}
+        td, tr th {{
+            padding: 8px;
+            text-align: left;
+        }}
+        tr:nth-child(even) {{
+            background-color: #f2f2f2;
+        }}
+    </style>
+    </head>
+    <body>
+    <h2>Monthly Report for {date}</h2>
+    <p>This report details items appearing in the English Prescribing Data for {date} that have not previously appeared in the data (from Jan 2014).</p>
+    {jan_alert}
+    <h3>New Chemical Substances</h3>
+    <p>Identify "chemical substances" prescribed for the first time</p>
+    {chem_subs.to_html()}
+    <h3>New BNF Codes</h3>
+    <p>Identify BNF codes used for the first time</p>
+    {bnf_codes.to_html()}
+    <h3>New BNF Descriptions</h3>
+    <p>Identify new descriptions only (not new BNF code)</p>
+    {bnf_descriptions.to_html()}
+    </body>
+    </html>
+    """
+    # Write the report to a file
+    with open(f"{reports_dir}/monthly_report_{date}.html", "w") as file:
+        file.write(report)
 
-    # Add column BNF_CHAPTER which is the first 2 characters of BNF_CODE
-    df.loc[:, 'BNF_CHAPTER'] = df['BNF_CODE'].str[:2]
-    # Add column BNF_SECTION which is the 3rd and 4th characters of BNF_CODE
-    df.loc[:, 'BNF_SECTION'] = df['BNF_CODE'].str[2:4]
-    # Add column BNF_PARAGRAPH which is the 5th and 6th characters of BNF_CODE
-    df.loc[:, 'BNF_PARAGRAPH'] = df['BNF_CODE'].str[4:6]
-    # Add column BNF_SUBPARAGRAPH which is the 7th character of BNF_CODE
-    df.loc[:, 'BNF_SUBPARAGRAPH'] = df['BNF_CODE'].str[6]
-
-    # Sort the dataframe by BNF_CHAPTER Ascending, BNF_SECTION Ascending, BNF_PARAGRAPH Ascending, BNF_SUBPARAGRAPH Ascending
-    df = df.sort_values(by=['BNF_CHAPTER', 'BNF_SECTION', 'BNF_PARAGRAPH', 'BNF_SUBPARAGRAPH'])
-
-    # Drop the intermediate columns
-    df = df.drop(columns=['BNF_CHAPTER', 'BNF_SECTION', 'BNF_PARAGRAPH', 'BNF_SUBPARAGRAPH'])
-
-    # Reset the index
-    df = df.reset_index(drop=True)
-
-    return df
-
-def find_unique_rows(df1, df2):
-    # Merge the two dataframes with indicator to identify the source of each row
-    merged_df = df1.merge(df2, how='outer', indicator=True)
-
-    # Select the rows that are only in one of the dataframes
-    unique_rows = merged_df[merged_df['_merge'] != 'both']
-
-    # Drop the indicator column before returning
-    unique_rows = unique_rows.drop(columns=['_merge'])
-
-    return unique_rows
+    print (f"Report written to {reports_dir}/monthly_report_{date}.html")
