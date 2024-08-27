@@ -29,7 +29,7 @@ def main():
     compare_data = utils.CompareLatest(
         existing_data_extract.results(),
         latest_data_extract.results(),
-        exclude_chapters=['20', '22', '23', '2107', '2127', '2129']
+        exclude_chapters=[]
     )
 
     chem_subs = compare_data.return_new_chem_subs()
