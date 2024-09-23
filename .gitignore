@@ -26,3 +26,4 @@ __pycache__/
 .Trash-*/
 /data
 TRUD.secrets
+/measures_to_test
