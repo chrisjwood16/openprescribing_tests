@@ -363,12 +363,13 @@ def generate_list_reports_html():
         f.write(html_content)
 
 def run_tests(bnf_codes_df, date_for):
-    # Replace using GitHub API and existing measure definitions
-    folder_path = '../measures_to_test'  
-    measures_json = read_json_files_in_folder(folder_path)
+    folder_path = '../measures_to_test'  # Temporary line to test locally
+    measures_json = read_json_files_in_folder(folder_path) # Temporary line to test locally
+
+    #measures_json = read_json_files_in_github() # Uncomment this line to use GitHub files after testing locally
 
     # Load the CSV file into a pandas DataFrame - Remove this line to use passed variable version after testing
-    bnf_codes_df = pd.read_csv('new_bnf_codes.csv')
+    bnf_codes_df = pd.read_csv('new_bnf_codes.csv') # Temporary line to test locally - Remove this line after testing - will use passed variable version
 
     # Create an empty list for triggered tests
     triggered_tests = []
