@@ -1,6 +1,7 @@
 import pandas as pd
 import bsa_utils
 import utils
+import testing_utils
 import os
 
 def main():
@@ -38,6 +39,8 @@ def main():
     data_for = latest_data_extract.return_resources_to()
     utils.write_monthly_report_htmL(chem_subs, bnf_codes, return_new_desc_only, data_for)
     utils.generate_list_reports_html()
+
+    testing_utils.run_tests(bnf_codes, data_for)
 
 if __name__ == "__main__":
     main()
