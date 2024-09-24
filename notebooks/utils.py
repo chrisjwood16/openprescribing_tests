@@ -174,7 +174,7 @@ def write_monthly_report_htmL(chem_subs, bnf_codes, bnf_descriptions, date):
 def generate_list_reports_html():
     reports_dir = os.path.join("..", "reports")
     # Get all HTML files in the directory, except list_reports.html
-    html_files = [f for f in os.listdir(reports_dir) if f.endswith('.html') and f != 'list_reports.html']
+    html_files = [f for f in os.listdir(reports_dir) if f.endswith('.html') and f != 'list_reports.html' and not f.startswith('monthly_test_report')]
 
     # Start the HTML content
     html_content = """
