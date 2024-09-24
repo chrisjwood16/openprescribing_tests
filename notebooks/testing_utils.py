@@ -348,6 +348,9 @@ def generate_list_reports_html():
     # Add links to all HTML files
     for html_file in html_files:
         title = os.path.splitext(html_file)[0]
+        # Create title for month and year
+        title = title.split('_')[-1]
+        title = pd.to_datetime(title).strftime('%B %Y')
         link = f"https://html-preview.github.io/?url=https://github.com/chrisjwood16/openprescribing_tests/blob/main/reports/{html_file}"
         html_content += f'<li><a href="{link}">{title}</a></li>\n'
 
