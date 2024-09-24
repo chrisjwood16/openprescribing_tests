@@ -27,3 +27,4 @@ __pycache__/
 /data
 TRUD.secrets
 /measures_to_test
+notebooks/new_bnf_codes.csv
