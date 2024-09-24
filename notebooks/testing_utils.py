@@ -1,7 +1,11 @@
 import pandas as pd
 import os
 import json
+import requests
+from bs4 import BeautifulSoup
 
+
+###### READ MEASURES FILES ######
 def read_json_files_in_folder(folder_path):
     # Define a list of permissible fields for testing_as
     permissible_testing_as_fields = ["numerator_bnf_codes_filter"]
@@ -57,6 +61,104 @@ def read_json_files_in_folder(folder_path):
                         # Handle the error or log it accordingly
                         print(f"Error: {e}")
     return results
+
+
+# GitHub URL to scrape the list of JSON files
+base_url = "https://github.com/ebmdatalab/openprescribing/tree/main/openprescribing/measures/definitions"
+raw_base_url = "https://raw.githubusercontent.com/ebmdatalab/openprescribing/main/openprescribing/measures/definitions/"
+
+def get_json_files_from_github(url):
+    # Send a request to get the HTML content
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise Exception(f"Failed to load page {url}")
+    
+    # Parse the page with BeautifulSoup
+    soup = BeautifulSoup(response.content, "html.parser")
+    
+    # Find all JSON file links on the page
+    json_files = []
+    for link in soup.find_all('a', href=True):
+        href = link['href']
+        if href.endswith('.json'):  # Only select .json files
+            file_name = href.split('/')[-1]
+            json_files.append(file_name)
+    
+    return json_files
+
+def load_json_file(file_name):
+    # Construct the raw GitHub URL for the JSON file
+    file_url = raw_base_url + file_name
+    response = requests.get(file_url)
+    
+    if response.status_code == 200:
+        return response.json()  # Return JSON content as a Python dict
+    else:
+        raise Exception(f"Failed to load JSON file {file_name}")
+    
+def read_json_files_in_github():
+    # Define a list of permissible fields for testing_as
+    permissible_testing_as_fields = ["numerator_bnf_codes_filter"]
+    results = []
+
+    # Step 1: Get list of JSON files from the GitHub directory
+    json_files = get_json_files_from_github(base_url)
+
+    # Step 2: Load each JSON file and process it
+    for file_name in json_files:
+        try:
+            filename_without_extension = os.path.splitext(file_name)[0]
+            
+            # Read the JSON data using the load_json_file function
+            json_data = load_json_file(file_name)
+
+            # Check if 'testing_measure' exists and is True
+            if json_data.get('testing_measure') is True:
+                try:
+                    # Check if 'testing_type' is not None
+                    testing_type = json_data.get('testing_type')
+                    if testing_type is None:
+                        raise ValueError(f"In the file {filename_without_extension}, 'testing_type' is not defined.")
+                    
+                    # Ensure 'testing_as' is one of the permissible fields or 'custom'
+                    if testing_type != 'custom' and testing_type not in permissible_testing_as_fields:
+                        raise ValueError(f"In the file {filename_without_extension}, 'testing_type' must be one of {permissible_testing_as_fields} or 'custom'.")
+                
+                    # Prepare the result dictionary
+                    result = {
+                        'filename': filename_without_extension,
+                        'testing_measure': json_data.get('testing_measure'),
+                        'testing_comments': json_data.get('testing_comments'),
+                        'testing_type': testing_type
+                    }
+                
+                    # Get data to test against if 'testing_type' is not 'custom'
+                    if testing_type != 'custom':
+                        result['testing_type_data'] = json_data.get(testing_type)
+                        if result['testing_type_data'] is None:
+                            raise ValueError(f"In the file {filename_without_extension}, data for '{testing_type}' is missing or invalid.")
+                    elif testing_type == 'custom':
+                        # Handle custom case with include/exclude logic
+                        result['testing_include'] = json_data.get('testing_include')
+                        result['testing_exclude'] = json_data.get('testing_exclude')
+                
+                        if result['testing_include'] is None or result['testing_exclude'] is None:
+                            raise ValueError(f"In the file {filename_without_extension}, both 'testing_include' and 'testing_exclude' must be provided when 'testing_type' is 'custom'.")
+                
+                    # Append the result to the results list
+                    results.append(result)
+                
+                except ValueError as e:
+                    # Handle specific ValueError
+                    print(f"Error in file {filename_without_extension}: {e}")
+        
+        except Exception as e:
+            # Catch all other exceptions like network issues or parsing problems
+            print(f"Failed to process {file_name}: {e}")
+    
+    return results
+
+#####################################################################################################
 
 # Convert wildcard patterns to regex patterns
 def wildcard_to_regex(pattern):
@@ -129,6 +231,8 @@ def measures_filter(df, measure_data):
         result["test_triggered"] = False
     return result
     
+####### HTML REPORT CREATION #######
+
 def write_monthly_testing_report_html(triggered_tests, date):
     reports_dir = os.path.join("..", "reports")
     os.makedirs(reports_dir, exist_ok=True)
