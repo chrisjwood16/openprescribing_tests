@@ -233,7 +233,7 @@ def measures_filter(df, measure_data):
     
 ####### HTML REPORT CREATION #######
 
-def write_monthly_testing_report_html(triggered_tests, date):
+def write_monthly_testing_report_html(triggered_tests, passed_tests, date):
     reports_dir = os.path.join("..", "reports")
     os.makedirs(reports_dir, exist_ok=True)
 
@@ -245,44 +245,90 @@ def write_monthly_testing_report_html(triggered_tests, date):
             f'<a href="https://www.nhsbsa.nhs.uk/bnf-code-changes-january-{date[:4]}">more information here</a></p>'
         )
 
+    # Read the base64 image string from the file
+    with open("base64_image.txt", "r") as file:
+        base64_image = file.read()
+
+    tick_svg = '<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 122.88 101.6"><defs><style>.cls-1{fill:#15b01a;}</style></defs><title>tick-green</title><path class="cls-1" d="M4.67,67.27c-14.45-15.53,7.77-38.7,23.81-24C34.13,48.4,42.32,55.9,48,61L93.69,5.3c15.33-15.86,39.53,7.42,24.4,23.36L61.14,96.29a17,17,0,0,1-12.31,5.31h-.2a16.24,16.24,0,0,1-11-4.26c-9.49-8.8-23.09-21.71-32.91-30v0Z"/></svg>'
+    cross_svg = '<?xml version="1.0" encoding="utf-8"?><svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 91.06 122.88" style="enable-background:new 0 0 91.06 122.88" xml:space="preserve"><g><path d="M58.68,84.96H27.37v-3.12c0-5.32,0.59-9.65,1.8-12.97c1.21-3.35,3.01-6.36,5.4-9.11c2.39-2.76,7.76-7.6,16.12-14.52c4.45-3.63,6.67-6.95,6.67-9.96c0-3.04-0.9-5.37-2.67-7.06c-1.8-1.66-4.5-2.5-8.13-2.5c-3.91,0-7.12,1.29-9.68,3.88c-2.56,2.56-4.19,7.09-4.9,13.5L0,39.13c1.1-11.76,5.37-21.21,12.8-28.39C20.25,3.57,31.68,0,47.06,0c11.98,0,21.63,2.5,29,7.48c9.99,6.78,15,15.78,15,27.04c0,4.67-1.29,9.2-3.88,13.53c-2.56,4.33-7.85,9.65-15.81,15.89c-5.54,4.42-9.06,7.93-10.52,10.61C59.42,77.19,58.68,80.68,58.68,84.96L58.68,84.96z M26.28,93.29h33.56v29.6H26.28V93.29L26.28,93.29z" fill="#f97306"/></g></svg>'
     # Start the HTML report
     report = f"""
     <html>
     <head>
+    <title>Monthly Testing Report for {date}</title>
     <style>
         body {{
             font-family: Arial, sans-serif;
             background-color: #f8f9fa;
             margin: 20px;
+            color: #333;
+        }}
+        .container {{
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+        }}
+        header {{
+            text-align: center;
+            margin-bottom: 40px;
+        }}
+        header img {{
+            max-width: 650px;
+            margin-bottom: 10px;
+        }}
+        h2 {{
+            color: #333;
+        }}
+        h3 {{
+            color: #333;
+            margin-top: 30px;
+        }}
+        p {{
+            margin-bottom: 15px;
         }}
         table {{
+            width: 100%;
             border-collapse: collapse;
-            table-layout: auto;
+            margin-top: 20px;
             margin-bottom: 20px;
         }}
         table, th, td {{
-            border: 1px solid black;
+            border: 1px solid #333;
         }}
         th {{
             background-color: #0485d1;
             color: white;
-            padding: 8px;
+            padding: 10px;
             text-align: left;
         }}
-        td, tr th {{
+        td {{
             padding: 8px;
             text-align: left;
         }}
         tr:nth-child(even) {{
             background-color: #f2f2f2;
         }}
+        a {{
+            text-decoration: none;
+            color: #0485d1;
+        }}
+        a:hover {{
+            text-decoration: underline;
+        }}
     </style>
     </head>
     <body>
-    <h2>Monthly Testing Report for {date}</h2>
-    <p>This report details testing results for OpenPrescribing measures which have the flag testing_measure = true. Items appearing in the English Prescribing Data for {date} that have not previously appeared in the data (from Jan 2014).</p>
-    {jan_alert}
-    <p><a href="https://html-preview.github.io/?url=https://github.com/chrisjwood16/openprescribing_tests/blob/main/reports/list_testing_reports.html">View previous reports</a></p>
+    <div class="container">
+        <header>
+            <img src="{base64_image}" alt="OpenPrescribing logo">
+            <h2>Monthly Testing Report for {date}</h2>
+        </header>
+        <p>This report details testing results for OpenPrescribing measures which have the flag testing_measure = true. Items appearing in the English Prescribing Data for {date} that have not previously appeared in the data (from Jan 2014).</p>
+        {jan_alert}
+        <p><a href="https://html-preview.github.io/?url=https://github.com/chrisjwood16/openprescribing_tests/blob/main/reports/list_testing_reports.html">View previous reports</a></p>
     """
 
     # Check if there are any triggered tests
@@ -291,58 +337,90 @@ def write_monthly_testing_report_html(triggered_tests, date):
     else:
         report += "<h2>Tests returning results:</h2>"
         for item in triggered_tests:
-            report += f"<a href='https://github.com/ebmdatalab/openprescribing/tree/main/openprescribing/measures/definitions/{item['title']}'><h3>{item['title']}</h3></a>"
+            report += f"<a href='https://github.com/ebmdatalab/openprescribing/tree/main/openprescribing/measures/definitions/{item['title']}'><h3>{item['title']} {cross_svg}</h3></a>"
             report += f"<p>{item['comments']}</p>"
-            df = item['data'][["BNF_CODE",	"BNF_DESCRIPTION", "CHEMICAL_SUBSTANCE_BNF_DESCR"]]
-            report += f"<p>{df.to_html()}</p>"
+            df = item['data'][["BNF_CODE", "BNF_DESCRIPTION", "CHEMICAL_SUBSTANCE_BNF_DESCR"]]
+            report += f"<p>{df.to_html(index=False, classes='table')}</p>"
+        report += "<h2>Tests passed:</h2>"
+        if len(passed_tests) == 0:
+            report += "<p>No passed tests</p>"
+        else:
+            for item in passed_tests:
+                report += f"<p><a href='https://github.com/ebmdatalab/openprescribing/tree/main/openprescribing/measures/definitions/{item['title']}'>{item['title']}</a>  {tick_svg}<span style='color: green;'>&#10004;</span></p>"
 
     report += """
+    </div>
     </body>
     </html>
     """
+
     # Write the report to a file
     with open(f"{reports_dir}/monthly_test_report_{date}.html", "w") as file:
         file.write(report)
 
-    print (f"Report written to {reports_dir}/monthly_testing_report_{date}.html")
+    print(f"Report written to {reports_dir}/monthly_testing_report_{date}.html")
+
+
 
 def generate_list_reports_html():
     reports_dir = os.path.join("..", "reports")
-    # Get all HTML files in the directory, except list_reports.html
-    html_files = [f for f in os.listdir(reports_dir) if f.endswith('.html') and f != 'list_reports.html' and f.startswith('monthly_test_report')]
+    
+    # Read the base64 image string from the file
+    with open("base64_image.txt", "r") as file:
+        base64_image = file.read()
 
-    # Start the HTML content
-    html_content = """
+    # Get all HTML files in the directory, except list_reports.html
+    html_files = [f for f in os.listdir(reports_dir) if f.endswith('.html') and f != 'list_reports.html' and f != 'list_test_reports.html' and f.startswith('monthly_test_report')]
+
+    # Start the HTML content with the Base64 logo embedded in the header
+    html_content = f"""
     <html>
     <head>
+    <title>English Prescribing Data - Monthly Test Reports</title>
     <style>
-        body {
+        body {{
             font-family: Arial, sans-serif;
             background-color: #f8f9fa;
             margin: 20px;
-        }
-        a {
+        }}
+        a {{
             text-decoration: none;
             color: #0485d1;
-        }
-        a:hover {
+        }}
+        a:hover {{
             text-decoration: underline;
-        }
-        h2 {
+        }}
+        h2 {{
             color: #333;
-        }
-        ul {
-            list-style-type: none;
-            padding: 0;
-        }
-        li {
+        }}
+        li {{
             margin: 10px 0;
-        }
+        }}
+        header {{
+            text-align: center;
+            margin-bottom: 40px;
+        }}
+        header img {{
+            max-width: 650px;
+            margin-bottom: 10px;
+        }}
+        .container {{
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+        }}
     </style>
     </head>
     <body>
-    <h2>English Prescribing Data - Monthly Testing Reports</h2>
-    <ul>
+    <div class="container">
+        <header>
+            <img src="{base64_image}" alt="OpenPrescribing logo">
+            <h2>English Prescribing Data - Monthly Test Reports</h2>
+        </header>
+        <ul>
     """
 
     # Add links to all HTML files
@@ -357,6 +435,7 @@ def generate_list_reports_html():
     # End the HTML content
     html_content += """
     </ul>
+    </div>
     </body>
     </html>
     """
@@ -376,11 +455,14 @@ def run_tests(bnf_codes_df, date_for):
 
     # Create an empty list for triggered tests
     triggered_tests = []
+    passed_tests = []
 
     for measure_data in measures_json:
         test_result = measures_filter(bnf_codes_df, measure_data)
         if (test_result["test_triggered"]):
             triggered_tests.append(test_result)
+        else:
+            passed_tests.append(test_result)
 
-    write_monthly_testing_report_html(triggered_tests, date_for)
+    write_monthly_testing_report_html(triggered_tests, passed_tests, date_for)
     generate_list_reports_html()
