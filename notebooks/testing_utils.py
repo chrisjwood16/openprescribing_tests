@@ -9,7 +9,9 @@ from bs4 import BeautifulSoup
 def read_json_files_in_folder(folder_path):
     # Define a list of permissible fields for testing_as
     permissible_testing_as_fields = ["numerator_bnf_codes_filter"]
-    results = []
+    testing_true = []
+    testing_false = []
+    testing_none = []
     
     # Iterate over all files in the folder
     for filename in os.listdir(folder_path):
@@ -55,12 +57,24 @@ def read_json_files_in_folder(folder_path):
                                 raise ValueError(f"In the file {filename_without_extension}, both 'testing_include' and 'testing_exclude' must be provided when 'testing_type' is 'custom'.")
                     
                         # Append the result to the results list
-                        results.append(result)
+                        testing_true.append(result)
                     
                     except ValueError as e:
                         # Handle the error or log it accordingly
                         print(f"Error: {e}")
-    return results
+                elif data.get('testing_measure') is False:
+                    result = {
+                        'filename': filename_without_extension,
+                        'testing_measure': data.get('testing_measure')
+                    }
+                    testing_false.append(result)
+                else:
+                    result = {
+                        'filename': filename_without_extension,
+                        'testing_measure': None
+                    }
+                    testing_none.append(result)
+    return testing_true, testing_false, testing_none
 
 
 # GitHub URL to scrape the list of JSON files
@@ -99,7 +113,9 @@ def load_json_file(file_name):
 def read_json_files_in_github():
     # Define a list of permissible fields for testing_as
     permissible_testing_as_fields = ["numerator_bnf_codes_filter"]
-    results = []
+    testing_true = []
+    testing_false = []
+    testing_none = []
 
     # Step 1: Get list of JSON files from the GitHub directory
     json_files = get_json_files_from_github(base_url)
@@ -146,17 +162,18 @@ def read_json_files_in_github():
                             raise ValueError(f"In the file {filename_without_extension}, both 'testing_include' and 'testing_exclude' must be provided when 'testing_type' is 'custom'.")
                 
                     # Append the result to the results list
-                    results.append(result)
+                    testing_true.append(result)
                 
                 except ValueError as e:
                     # Handle specific ValueError
                     print(f"Error in file {filename_without_extension}: {e}")
+
         
         except Exception as e:
             # Catch all other exceptions like network issues or parsing problems
             print(f"Failed to process {file_name}: {e}")
     
-    return results
+    return testing_true, testing_false, testing_none
 
 #####################################################################################################
 
@@ -233,7 +250,7 @@ def measures_filter(df, measure_data):
     
 ####### HTML REPORT CREATION #######
 
-def write_monthly_testing_report_html(triggered_tests, passed_tests, date):
+def write_monthly_testing_report_html(triggered_tests, passed_tests, testing_false, testing_none, date):
     reports_dir = os.path.join("..", "reports")
     os.makedirs(reports_dir, exist_ok=True)
 
@@ -249,8 +266,8 @@ def write_monthly_testing_report_html(triggered_tests, passed_tests, date):
     with open("base64_image.txt", "r") as file:
         base64_image = file.read()
 
-    tick_svg = '<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 122.88 101.6"><defs><style>.cls-1{fill:#15b01a;}</style></defs><title>tick-green</title><path class="cls-1" d="M4.67,67.27c-14.45-15.53,7.77-38.7,23.81-24C34.13,48.4,42.32,55.9,48,61L93.69,5.3c15.33-15.86,39.53,7.42,24.4,23.36L61.14,96.29a17,17,0,0,1-12.31,5.31h-.2a16.24,16.24,0,0,1-11-4.26c-9.49-8.8-23.09-21.71-32.91-30v0Z"/></svg>'
-    cross_svg = '<?xml version="1.0" encoding="utf-8"?><svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 91.06 122.88" style="enable-background:new 0 0 91.06 122.88" xml:space="preserve"><g><path d="M58.68,84.96H27.37v-3.12c0-5.32,0.59-9.65,1.8-12.97c1.21-3.35,3.01-6.36,5.4-9.11c2.39-2.76,7.76-7.6,16.12-14.52c4.45-3.63,6.67-6.95,6.67-9.96c0-3.04-0.9-5.37-2.67-7.06c-1.8-1.66-4.5-2.5-8.13-2.5c-3.91,0-7.12,1.29-9.68,3.88c-2.56,2.56-4.19,7.09-4.9,13.5L0,39.13c1.1-11.76,5.37-21.21,12.8-28.39C20.25,3.57,31.68,0,47.06,0c11.98,0,21.63,2.5,29,7.48c9.99,6.78,15,15.78,15,27.04c0,4.67-1.29,9.2-3.88,13.53c-2.56,4.33-7.85,9.65-15.81,15.89c-5.54,4.42-9.06,7.93-10.52,10.61C59.42,77.19,58.68,80.68,58.68,84.96L58.68,84.96z M26.28,93.29h33.56v29.6H26.28V93.29L26.28,93.29z" fill="#f97306"/></g></svg>'
+    tick_svg = '<span class="svg-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="#15b01a" class="bi bi-check-lg" viewBox="0 0 16 16"><path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425z"/></svg></span>'
+    question_svg = '<span class="svg-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="#f97306" class="bi bi-question-lg" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4.475 5.458c-.284 0-.514-.237-.47-.517C4.28 3.24 5.576 2 7.825 2c2.25 0 3.767 1.36 3.767 3.215 0 1.344-.665 2.288-1.79 2.973-1.1.659-1.414 1.118-1.414 2.01v.03a.5.5 0 0 1-.5.5h-.77a.5.5 0 0 1-.5-.495l-.003-.2c-.043-1.221.477-2.001 1.645-2.712 1.03-.632 1.397-1.135 1.397-2.028 0-.979-.758-1.698-1.926-1.698-1.009 0-1.71.529-1.938 1.402-.066.254-.278.461-.54.461h-.777ZM7.496 14c.622 0 1.095-.474 1.095-1.09 0-.618-.473-1.092-1.095-1.092-.606 0-1.087.474-1.087 1.091S6.89 14 7.496 14"/></svg></span>'
     # Start the HTML report
     report = f"""
     <html>
@@ -318,6 +335,12 @@ def write_monthly_testing_report_html(triggered_tests, passed_tests, date):
         a:hover {{
             text-decoration: underline;
         }}
+        .svg-icon {{
+            width: 2em;
+            height: 2em;
+            vertical-align: middle;
+            display: inline-block;
+        }}
     </style>
     </head>
     <body>
@@ -335,9 +358,9 @@ def write_monthly_testing_report_html(triggered_tests, passed_tests, date):
     if len(triggered_tests) == 0:
         report += "<h3>All tests passed</h3>"
     else:
-        report += "<h2>Tests returning results:</h2>"
+        report += "<h2>Measures to check:</h2>"
         for item in triggered_tests:
-            report += f"<a href='https://github.com/ebmdatalab/openprescribing/tree/main/openprescribing/measures/definitions/{item['title']}'><h3>{item['title']} {cross_svg}</h3></a>"
+            report += f"<a href='https://github.com/ebmdatalab/openprescribing/tree/main/openprescribing/measures/definitions/{item['title']}'><h3>{item['title']} {question_svg}</h3></a>"
             report += f"<p>{item['comments']}</p>"
             df = item['data'][["BNF_CODE", "BNF_DESCRIPTION", "CHEMICAL_SUBSTANCE_BNF_DESCR"]]
             report += f"<p>{df.to_html(index=False, classes='table')}</p>"
@@ -346,7 +369,18 @@ def write_monthly_testing_report_html(triggered_tests, passed_tests, date):
             report += "<p>No passed tests</p>"
         else:
             for item in passed_tests:
-                report += f"<p><a href='https://github.com/ebmdatalab/openprescribing/tree/main/openprescribing/measures/definitions/{item['title']}'>{item['title']}</a>  {tick_svg}<span style='color: green;'>&#10004;</span></p>"
+                report += f"<p><a href='https://github.com/ebmdatalab/openprescribing/tree/main/openprescribing/measures/definitions/{item['title']}'>{item['title']}</a> {tick_svg}</p>"
+        if len(testing_false) > 0 or len(testing_none) > 0:
+            report += '<hr style="border: none; height: 2px; background-color: #0485d1; margin: 20px 0;">'
+            report += "<h2>Other measures</h2>"
+            if len(testing_false) > 0:
+                report += "<h3>Measures with testing disabled</h3>"
+                for item in testing_false:
+                    report += f"<p><a href='https://github.com/ebmdatalab/openprescribing/tree/main/openprescribing/measures/definitions/{item['filename']}.json'>{item['filename']}</a></p>"
+            if len(testing_none) > 0:
+                report += "<h3>Measures without testing information</h3>"
+                for item in testing_none:
+                    report += f"<p><a href='https://github.com/ebmdatalab/openprescribing/tree/main/openprescribing/measures/definitions/{item['filename']}.json'>{item['filename']}</a></p>"
 
     report += """
     </div>
@@ -446,9 +480,9 @@ def generate_list_reports_html():
 
 def run_tests(bnf_codes_df, date_for):
     folder_path = '../measures_to_test'  # Temporary line to test locally
-    measures_json = read_json_files_in_folder(folder_path) # Temporary line to test locally
+    testing_true, testing_false, testing_none = read_json_files_in_folder(folder_path) # Temporary line to test locally
 
-    #measures_json = read_json_files_in_github() # Uncomment this line to use GitHub files after testing locally
+    #testing_true, testing_false, testing_none  = read_json_files_in_github() # Uncomment this line to use GitHub files after testing locally
 
     # Load the CSV file into a pandas DataFrame - Remove this line to use passed variable version after testing
     bnf_codes_df = pd.read_csv('new_bnf_codes.csv') # Temporary line to test locally - Remove this line after testing - will use passed variable version
@@ -457,12 +491,12 @@ def run_tests(bnf_codes_df, date_for):
     triggered_tests = []
     passed_tests = []
 
-    for measure_data in measures_json:
+    for measure_data in testing_true:
         test_result = measures_filter(bnf_codes_df, measure_data)
         if (test_result["test_triggered"]):
             triggered_tests.append(test_result)
         else:
             passed_tests.append(test_result)
 
-    write_monthly_testing_report_html(triggered_tests, passed_tests, date_for)
+    write_monthly_testing_report_html(triggered_tests, passed_tests, testing_false, testing_none, date_for)
     generate_list_reports_html()
