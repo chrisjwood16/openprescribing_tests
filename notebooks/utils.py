@@ -25,6 +25,7 @@ class CompareLatest:
         result = self.df_latest[self.df_latest['BNF_CODE'].isin(unique_codes)]
         result = self.sort_by_bnf_code(result)
         self.new_bnf_codes = result
+        self.new_bnf_codes.to_csv('new_bnf_codes.csv')
 
     def find_bnf_description_only_in_latest(self):
         latest_descriptions = set(self.df_latest['BNF_DESCRIPTION'])
@@ -105,108 +106,179 @@ class CompareLatest:
     def return_new_desc_only(self):
         return self.new_desc_only
 
-def write_monthly_report_htmL(chem_subs, bnf_codes, bnf_descriptions, date):
+def write_monthly_report_html(chem_subs, bnf_codes, bnf_descriptions, date):
     reports_dir = os.path.join("..", "reports")
     os.makedirs(reports_dir, exist_ok=True)
+
+    with open("base64_image.txt", "r") as file:
+        base64_image = file.read()
+
     # Create an alert if January data to explain BNF structure changes
-    if date[-2:]=='01':
-        jan_alert=f'<p><b>Please note:</b> January data often includes a larger number of "changes" as BNF structure changes are generally made in January data - <a href="https://www.nhsbsa.nhs.uk/bnf-code-changes-january-{date[:4]}">more information here</a></p>'
+    if date[-2:] == '01':
+        jan_alert = f'<p><b>Please note:</b> January data often includes a larger number of "changes" as BNF structure changes are generally made in January data - <a href="https://www.nhsbsa.nhs.uk/bnf-code-changes-january-{date[:4]}">more information here</a></p>'
     else:
-        jan_alert=''
-    
+        jan_alert = ''
+
     # Write a function to generate the HTML report
     report = f"""
     <html>
     <head>
+    <title>Monthly New Item Report for {date}</title>
     <style>
         body {{
             font-family: Arial, sans-serif;
             background-color: #f8f9fa;
             margin: 20px;
+            color: #333;
+        }}
+        .container {{
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+        }}
+        header {{
+            text-align: center;
+            margin-bottom: 40px;
+        }}
+        header img {{
+            max-width: 650px;
+            margin-bottom: 10px;
+        }}
+        h2 {{
+            color: #333;
+        }}
+        h3 {{
+            color: #333;
+            margin-top: 30px;
+        }}
+        p {{
+            margin-bottom: 15px;
         }}
         table {{
+            width: 100%;
             border-collapse: collapse;
-            table-layout: auto;
+            margin-top: 20px;
             margin-bottom: 20px;
         }}
         table, th, td {{
-            border: 1px solid black;
+            border: 1px solid #333;
         }}
         th {{
             background-color: #0485d1;
             color: white;
-            padding: 8px;
+            padding: 10px;
             text-align: left;
         }}
-        td, tr th {{
+        td {{
             padding: 8px;
             text-align: left;
         }}
         tr:nth-child(even) {{
             background-color: #f2f2f2;
         }}
+        a {{
+            text-decoration: none;
+            color: #0485d1;
+        }}
+        a:hover {{
+            text-decoration: underline;
+        }}
     </style>
     </head>
     <body>
-    <h2>Monthly Report for {date}</h2>
-    <p>This report details items appearing in the English Prescribing Data for {date} that have not previously appeared in the data (from Jan 2014).</p>
-    {jan_alert}
-    <p><a href="https://html-preview.github.io/?url=https://github.com/chrisjwood16/openprescribing_tests/blob/main/reports/list_reports.html">View previous reports</a></p>
-    <h3>New Chemical Substances</h3>
-    <p>Identify "chemical substances" prescribed for the first time</p>
-    {chem_subs.to_html()}
-    <h3>New BNF Codes</h3>
-    <p>Identify BNF codes used for the first time</p>
-    {bnf_codes.to_html()}
-    <h3>New BNF Descriptions</h3>
-    <p>Identify new descriptions only (not new BNF code)</p>
-    {bnf_descriptions.to_html()}
+    <div class="container">
+        <header>
+            <img src="{base64_image}" alt="OpenPrescribing logo">
+            <h2>Monthly New Item Report for {date}</h2>
+        </header>
+        <p>This report details items appearing in the English Prescribing Data for {date} that have not previously appeared in the data (from Jan 2014).</p>
+        {jan_alert}
+        <p><a href="https://html-preview.github.io/?url=https://github.com/chrisjwood16/openprescribing_tests/blob/main/reports/list_reports.html">View previous reports</a></p>
+        
+        <h3>New Chemical Substances</h3>
+        <p>Identify "chemical substances" prescribed for the first time</p>
+        {chem_subs.to_html(index=False, classes='table')}
+        
+        <h3>New BNF Codes</h3>
+        <p>Identify BNF codes used for the first time</p>
+        {bnf_codes.to_html(index=False, classes='table')}
+        
+        <h3>New BNF Descriptions</h3>
+        <p>Identify new descriptions only (not new BNF code)</p>
+        {bnf_descriptions.to_html(index=False, classes='table')}
+    </div>
     </body>
     </html>
     """
+
     # Write the report to a file
     with open(f"{reports_dir}/monthly_report_{date}.html", "w") as file:
         file.write(report)
 
-    print (f"Report written to {reports_dir}/monthly_report_{date}.html")
+    print(f"Report written to {reports_dir}/monthly_report_{date}.html")
 
 def generate_list_reports_html():
     reports_dir = os.path.join("..", "reports")
-    # Get all HTML files in the directory, except list_reports.html
-    html_files = [f for f in os.listdir(reports_dir) if f.endswith('.html') and f != 'list_reports.html']
+    
+    # Read the base64 image string from the file
+    with open("base64_image.txt", "r") as file:
+        base64_image = file.read()
 
-    # Start the HTML content
-    html_content = """
+    # Get all HTML files in the directory, except list_reports.html
+    html_files = [f for f in os.listdir(reports_dir) if f.endswith('.html') and f != 'list_reports.html' and f != 'list_test_reports.html' and not f.startswith('monthly_test_report')]
+
+    # Start the HTML content with the Base64 logo embedded in the header
+    html_content = f"""
     <html>
     <head>
+    <title>English Prescribing Data - Monthly New Items Reports</title>
     <style>
-        body {
+        body {{
             font-family: Arial, sans-serif;
             background-color: #f8f9fa;
             margin: 20px;
-        }
-        a {
+        }}
+        a {{
             text-decoration: none;
             color: #0485d1;
-        }
-        a:hover {
+        }}
+        a:hover {{
             text-decoration: underline;
-        }
-        h2 {
+        }}
+        h2 {{
             color: #333;
-        }
-        ul {
-            list-style-type: none;
-            padding: 0;
-        }
-        li {
+        }}
+        li {{
             margin: 10px 0;
-        }
+        }}
+        header {{
+            text-align: center;
+            margin-bottom: 40px;
+        }}
+        header img {{
+            max-width: 650px;
+            margin-bottom: 10px;
+        }}
+        .container {{
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+        }}
     </style>
     </head>
     <body>
-    <h2>English Prescribing Data - Monthly New Items Reports</h2>
-    <ul>
+    <div class="container">
+        <header>
+            <img src="{base64_image}" alt="OpenPrescribing logo">
+            <h2>English Prescribing Data - Monthly New Items Reports</h2>
+        </header>
+        <ul>
     """
 
     # Add links to all HTML files
@@ -221,6 +293,7 @@ def generate_list_reports_html():
     # End the HTML content
     html_content += """
     </ul>
+    </div>
     </body>
     </html>
     """
